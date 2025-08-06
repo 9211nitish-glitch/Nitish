@@ -1,183 +1,181 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, jsonb, decimal, index } from "drizzle-orm/pg-core";
+import { mysqlTable, text, varchar, int, boolean, timestamp, json, decimal, index } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  email: text("email").notNull().unique(),
-  password: text("password").notNull(),
-  firstName: text("first_name").notNull(),
-  lastName: text("last_name").notNull(),
-  phone: text("phone"),
-  platform: text("platform"), // instagram, youtube, tiktok, twitter, multiple
-  followerCount: integer("follower_count").default(0),
+export const users = mysqlTable("users", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  username: varchar("username", { length: 255 }).notNull().unique(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  password: varchar("password", { length: 255 }).notNull(),
+  firstName: varchar("first_name", { length: 255 }).notNull(),
+  lastName: varchar("last_name", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 20 }),
+  platform: varchar("platform", { length: 100 }), // instagram, youtube, tiktok, twitter, multiple
+  followerCount: int("follower_count").default(0),
   bio: text("bio"),
   profileImage: text("profile_image"),
-  tier: text("tier").default("rising"), // rising, legendary
-  totalEarnings: decimal("total_earnings", { precision: 10, scale: 2 }).default("0"),
-  completedCampaigns: integer("completed_campaigns").default(0),
-  referralCode: text("referral_code").unique(),
-  referredBy: text("referred_by"),
+  tier: varchar("tier", { length: 50 }).default("rising"), // rising, legendary
+  totalEarnings: decimal("total_earnings", { precision: 10, scale: 2 }).default("0.00"),
+  completedCampaigns: int("completed_campaigns").default(0),
+  referralCode: varchar("referral_code", { length: 20 }).unique(),
+  referredBy: varchar("referred_by", { length: 20 }),
   isActive: boolean("is_active").default(true),
-  role: text("role").default("user"), // admin, user
-  createdAt: timestamp("created_at").defaultNow(),
+  role: varchar("role", { length: 50 }).default("user"), // admin, user
+  isAdmin: boolean("is_admin").default(false),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
 // Session storage table for authentication
-export const sessions = pgTable(
+export const sessions = mysqlTable(
   "sessions",
   {
-    sid: varchar("sid").primaryKey(),
-    sess: jsonb("sess").notNull(),
+    sid: varchar("sid", { length: 128 }).primaryKey(),
+    sess: json("sess").notNull(),
     expire: timestamp("expire").notNull(),
   },
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
 // Admin tasks that can be assigned to users
-export const tasks = pgTable("tasks", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  title: text("title").notNull(),
+export const tasks = mysqlTable("tasks", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  title: varchar("title", { length: 255 }).notNull(),
   description: text("description").notNull(),
   taskImage: text("task_image"), // Image for the task
   compensation: decimal("compensation", { precision: 10, scale: 2 }).notNull(),
   timeLimit: timestamp("time_limit").notNull(), // Deadline to accept task
   submissionDeadline: timestamp("submission_deadline").notNull(), // Deadline to submit work
-  maxAssignees: integer("max_assignees").default(1),
-  currentAssignees: integer("current_assignees").default(0),
-  status: text("status").default("active"), // active, paused, completed, cancelled
-  requirements: jsonb("requirements"), // Any specific requirements
-  createdBy: varchar("created_by").notNull().references(() => users.id),
-  createdAt: timestamp("created_at").defaultNow(),
+  maxAssignees: int("max_assignees").default(1),
+  currentAssignees: int("current_assignees").default(0),
+  status: varchar("status", { length: 50 }).default("active"), // active, paused, completed, cancelled
+  requirements: json("requirements"), // Any specific requirements
+  createdBy: varchar("created_by", { length: 36 }).notNull().references(() => users.id),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
 // Task assignments to users
-export const taskAssignments = pgTable("task_assignments", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  taskId: varchar("task_id").notNull().references(() => tasks.id),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  status: text("status").default("assigned"), // assigned, accepted, declined, submitted, approved, rejected, reassigned
+export const taskAssignments = mysqlTable("task_assignments", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  taskId: varchar("task_id", { length: 36 }).notNull().references(() => tasks.id),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  status: varchar("status", { length: 50 }).default("assigned"), // assigned, accepted, declined, submitted, approved, rejected, reassigned
   acceptedAt: timestamp("accepted_at"),
   submittedAt: timestamp("submitted_at"),
-  submissionFiles: jsonb("submission_files"), // Array of uploaded file URLs
+  submissionFiles: json("submission_files"), // Array of uploaded file URLs
   submissionNotes: text("submission_notes"),
   adminComments: text("admin_comments"), // For reassignment feedback
   reviewedAt: timestamp("reviewed_at"),
-  reviewedBy: varchar("reviewed_by").references(() => users.id),
-  createdAt: timestamp("created_at").defaultNow(),
+  reviewedBy: varchar("reviewed_by", { length: 36 }).references(() => users.id),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
 // User wallet for earnings and transactions
-export const wallets = pgTable("wallets", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().unique().references(() => users.id),
-  balance: decimal("balance", { precision: 10, scale: 2 }).default("0"),
-  totalEarned: decimal("total_earned", { precision: 10, scale: 2 }).default("0"),
-  totalWithdrawn: decimal("total_withdrawn", { precision: 10, scale: 2 }).default("0"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+export const wallets = mysqlTable("wallets", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  userId: varchar("user_id", { length: 36 }).notNull().unique().references(() => users.id),
+  balance: decimal("balance", { precision: 10, scale: 2 }).default("0.00"),
+  totalEarned: decimal("total_earned", { precision: 10, scale: 2 }).default("0.00"),
+  totalWithdrawn: decimal("total_withdrawn", { precision: 10, scale: 2 }).default("0.00"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`),
 });
 
 // Wallet transactions for all money movements
-export const walletTransactions = pgTable("wallet_transactions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  walletId: varchar("wallet_id").notNull().references(() => wallets.id),
-  type: text("type").notNull(), // credit, debit, referral_bonus, task_payment, withdrawal
+export const walletTransactions = mysqlTable("wallet_transactions", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  walletId: varchar("wallet_id", { length: 36 }).notNull().references(() => wallets.id),
+  type: varchar("type", { length: 50 }).notNull(), // credit, debit, referral_bonus, task_payment, withdrawal
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   description: text("description").notNull(),
-  referenceType: text("reference_type"), // task, referral, withdrawal
-  referenceId: varchar("reference_id"), // ID of related task, referral, etc.
-  status: text("status").default("completed"), // pending, completed, failed
-  createdAt: timestamp("created_at").defaultNow(),
+  referenceType: varchar("reference_type", { length: 50 }), // task, referral, withdrawal
+  referenceId: varchar("reference_id", { length: 36 }), // ID of related task, referral, etc.
+  status: varchar("status", { length: 50 }).default("completed"), // pending, completed, failed
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
 // Withdrawal requests
-export const withdrawalRequests = pgTable("withdrawal_requests", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id),
+export const withdrawalRequests = mysqlTable("withdrawal_requests", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  bankAccountNumber: text("bank_account_number"),
-  bankIFSC: text("bank_ifsc"),
-  bankAccountHolder: text("bank_account_holder"),
-  upiId: text("upi_id"),
-  paymentMethod: text("payment_method").notNull(), // bank, upi
-  status: text("status").default("pending"), // pending, approved, rejected, processed
+  paymentMethod: varchar("payment_method", { length: 50 }).notNull(), // bank_transfer, upi, paytm, paypal
+  paymentDetails: text("payment_details").notNull(),
+  status: varchar("status", { length: 50 }).default("pending"), // pending, approved, rejected, processed
   adminNotes: text("admin_notes"),
-  processedBy: varchar("processed_by").references(() => users.id),
+  processedBy: varchar("processed_by", { length: 36 }).references(() => users.id),
   processedAt: timestamp("processed_at"),
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
 // Referral system tracking
-export const referrals = pgTable("referrals", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  referrerId: varchar("referrer_id").notNull().references(() => users.id),
-  referredId: varchar("referred_id").notNull().references(() => users.id),
-  level: integer("level").notNull(), // 1-5 levels
+export const referrals = mysqlTable("referrals", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  referrerId: varchar("referrer_id", { length: 36 }).notNull().references(() => users.id),
+  referredId: varchar("referred_id", { length: 36 }).notNull().references(() => users.id),
+  level: int("level").notNull(), // 1-5 levels
   commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).notNull(), // 10%, 5%, 4%, 3%, 2%
-  totalEarned: decimal("total_earned", { precision: 10, scale: 2 }).default("0"),
+  totalEarned: decimal("total_earned", { precision: 10, scale: 2 }).default("0.00"),
   isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const campaigns = pgTable("campaigns", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  title: text("title").notNull(),
+export const campaigns = mysqlTable("campaigns", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  title: varchar("title", { length: 255 }).notNull(),
   description: text("description").notNull(),
-  brandName: text("brand_name").notNull(),
+  brandName: varchar("brand_name", { length: 255 }).notNull(),
   brandLogo: text("brand_logo"),
-  category: text("category").notNull(), // fashion, food, tech, lifestyle, etc.
-  type: text("type").notNull(), // online, onsite, both
-  compensation: integer("compensation").notNull(),
-  requirements: jsonb("requirements"), // follower count, platform, etc.
+  category: varchar("category", { length: 100 }).notNull(), // fashion, food, tech, lifestyle, etc.
+  type: varchar("type", { length: 50 }).notNull(), // online, onsite, both
+  compensation: int("compensation").notNull(),
+  requirements: json("requirements"), // follower count, platform, etc.
   deadline: timestamp("deadline"),
-  status: text("status").default("active"), // active, paused, completed
-  maxParticipants: integer("max_participants").default(10),
-  currentParticipants: integer("current_participants").default(0),
-  createdAt: timestamp("created_at").defaultNow(),
+  status: varchar("status", { length: 50 }).default("active"), // active, paused, completed
+  maxParticipants: int("max_participants").default(10),
+  currentParticipants: int("current_participants").default(0),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const campaignApplications = pgTable("campaign_applications", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  campaignId: varchar("campaign_id").notNull().references(() => campaigns.id),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  status: text("status").default("pending"), // pending, approved, rejected, completed
-  appliedAt: timestamp("applied_at").defaultNow(),
+export const campaignApplications = mysqlTable("campaign_applications", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  campaignId: varchar("campaign_id", { length: 36 }).notNull().references(() => campaigns.id),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  status: varchar("status", { length: 50 }).default("pending"), // pending, approved, rejected, completed
+  appliedAt: timestamp("applied_at").default(sql`CURRENT_TIMESTAMP`),
   completedAt: timestamp("completed_at"),
-  paymentStatus: text("payment_status").default("pending"), // pending, paid
+  paymentStatus: varchar("payment_status", { length: 50 }).default("pending"), // pending, paid
 });
 
-export const testimonials = pgTable("testimonials", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id),
+export const testimonials = mysqlTable("testimonials", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
   content: text("content").notNull(),
-  rating: integer("rating").notNull(),
+  rating: int("rating").notNull(),
   isVisible: boolean("is_visible").default(true),
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const blogPosts = pgTable("blog_posts", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  title: text("title").notNull(),
-  slug: text("slug").notNull().unique(),
+export const blogPosts = mysqlTable("blog_posts", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  title: varchar("title", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 255 }).notNull().unique(),
   excerpt: text("excerpt").notNull(),
   content: text("content").notNull(),
   featuredImage: text("featured_image"),
-  category: text("category").notNull(),
+  category: varchar("category", { length: 100 }).notNull(),
   isPublished: boolean("is_published").default(false),
   publishedAt: timestamp("published_at"),
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
-export const newsletters = pgTable("newsletters", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: text("email").notNull().unique(),
+export const newsletters = mysqlTable("newsletters", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  email: varchar("email", { length: 255 }).notNull().unique(),
   isActive: boolean("is_active").default(true),
-  subscribedAt: timestamp("subscribed_at").defaultNow(),
+  subscribedAt: timestamp("subscribed_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
 // Insert schemas
