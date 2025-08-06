@@ -1,5 +1,6 @@
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { db } from "./db";
 import { 
   users,
@@ -115,16 +116,21 @@ export class DatabaseStorage implements IStorage {
 
   async registerUser(userData: InsertUser): Promise<User> {
     const hashedPassword = await bcrypt.hash(userData.password, 10);
-    const referralCode = this.generateReferralCode(userData.username);
+    const userId = crypto.randomUUID();
+    const referralCode = this.generateReferralCode(userData.username || userData.email);
     
-    const [user] = await db.insert(users).values({
+    await db.insert(users).values({
       ...userData,
+      id: userId,
       password: hashedPassword,
       referralCode,
-    }).returning();
+    });
+
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
 
     // Create wallet for user
     await db.insert(wallets).values({
+      id: crypto.randomUUID(),
       userId: user.id,
     });
 
@@ -161,7 +167,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUser(id: string, updates: Partial<User>): Promise<User> {
-    const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
+    await db.update(users).set(updates).where(eq(users.id, id));
+    const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
 
@@ -171,7 +178,9 @@ export class DatabaseStorage implements IStorage {
 
   // Tasks (Admin Functions)
   async createTask(taskData: InsertTask & { createdBy: string }): Promise<Task> {
-    const [task] = await db.insert(tasks).values(taskData).returning();
+    const taskId = crypto.randomUUID();
+    await db.insert(tasks).values({ ...taskData, id: taskId });
+    const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId));
     return task;
   }
 
@@ -185,7 +194,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTask(id: string, updates: Partial<Task>): Promise<Task> {
-    const [task] = await db.update(tasks).set(updates).where(eq(tasks.id, id)).returning();
+    await db.update(tasks).set(updates).where(eq(tasks.id, id));
+    const [task] = await db.select().from(tasks).where(eq(tasks.id, id));
     return task;
   }
 
@@ -195,7 +205,8 @@ export class DatabaseStorage implements IStorage {
       userId,
     }));
     
-    const createdAssignments = await db.insert(taskAssignments).values(assignments).returning();
+    await db.insert(taskAssignments).values(assignments);
+    const createdAssignments = await db.select().from(taskAssignments).where(inArray(taskAssignments.taskId, [taskId]));
     
     // Update task current assignees count
     await db.update(tasks).set({
@@ -219,27 +230,33 @@ export class DatabaseStorage implements IStorage {
   }
 
   async acceptTask(assignmentId: string): Promise<TaskAssignment> {
-    const [assignment] = await db.update(taskAssignments).set({
+    await db.update(taskAssignments).set({
       status: 'accepted',
       acceptedAt: new Date(),
-    }).where(eq(taskAssignments.id, assignmentId)).returning();
+    }).where(eq(taskAssignments.id, assignmentId));
+    
+    const [assignment] = await db.select().from(taskAssignments).where(eq(taskAssignments.id, assignmentId));
     return assignment;
   }
 
   async declineTask(assignmentId: string): Promise<TaskAssignment> {
-    const [assignment] = await db.update(taskAssignments).set({
+    await db.update(taskAssignments).set({
       status: 'declined',
-    }).where(eq(taskAssignments.id, assignmentId)).returning();
+    }).where(eq(taskAssignments.id, assignmentId));
+    
+    const [assignment] = await db.select().from(taskAssignments).where(eq(taskAssignments.id, assignmentId));
     return assignment;
   }
 
   async submitTask(assignmentId: string, files: string[], notes?: string): Promise<TaskAssignment> {
-    const [assignment] = await db.update(taskAssignments).set({
+    await db.update(taskAssignments).set({
       status: 'submitted',
       submittedAt: new Date(),
       submissionFiles: files,
       submissionNotes: notes,
-    }).where(eq(taskAssignments.id, assignmentId)).returning();
+    }).where(eq(taskAssignments.id, assignmentId));
+    
+    const [assignment] = await db.select().from(taskAssignments).where(eq(taskAssignments.id, assignmentId));
     return assignment;
   }
 
@@ -263,11 +280,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async approveTaskSubmission(assignmentId: string, reviewerId: string): Promise<TaskAssignment> {
-    const [assignment] = await db.update(taskAssignments).set({
+    await db.update(taskAssignments).set({
       status: 'approved',
       reviewedAt: new Date(),
       reviewedBy: reviewerId,
-    }).where(eq(taskAssignments.id, assignmentId)).returning();
+    }).where(eq(taskAssignments.id, assignmentId));
+    
+    const [assignment] = await db.select().from(taskAssignments).where(eq(taskAssignments.id, assignmentId));
 
     // Get task details for payment
     const [taskAssignment] = await db.select().from(taskAssignments)
@@ -289,22 +308,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   async rejectTaskSubmission(assignmentId: string, reviewerId: string, comments: string): Promise<TaskAssignment> {
-    const [assignment] = await db.update(taskAssignments).set({
+    await db.update(taskAssignments).set({
       status: 'rejected',
       reviewedAt: new Date(),
       reviewedBy: reviewerId,
       adminComments: comments,
-    }).where(eq(taskAssignments.id, assignmentId)).returning();
+    }).where(eq(taskAssignments.id, assignmentId));
+    
+    const [assignment] = await db.select().from(taskAssignments).where(eq(taskAssignments.id, assignmentId));
     return assignment;
   }
 
   async reassignTask(assignmentId: string, reviewerId: string, comments: string): Promise<TaskAssignment> {
-    const [assignment] = await db.update(taskAssignments).set({
+    await db.update(taskAssignments).set({
       status: 'reassigned',
       reviewedAt: new Date(),
       reviewedBy: reviewerId,
       adminComments: comments,
-    }).where(eq(taskAssignments.id, assignmentId)).returning();
+    }).where(eq(taskAssignments.id, assignmentId));
+    
+    const [assignment] = await db.select().from(taskAssignments).where(eq(taskAssignments.id, assignmentId));
     return assignment;
   }
 
@@ -313,14 +336,18 @@ export class DatabaseStorage implements IStorage {
     const [wallet] = await db.select().from(wallets).where(eq(wallets.userId, userId));
     if (!wallet) {
       // Create wallet if doesn't exist
-      const [newWallet] = await db.insert(wallets).values({ userId }).returning();
+      const walletId = crypto.randomUUID();
+      await db.insert(wallets).values({ id: walletId, userId });
+      const [newWallet] = await db.select().from(wallets).where(eq(wallets.id, walletId));
       return newWallet;
     }
     return wallet;
   }
 
   async addWalletTransaction(transaction: Omit<WalletTransaction, 'id' | 'createdAt'>): Promise<WalletTransaction> {
-    const [newTransaction] = await db.insert(walletTransactions).values(transaction).returning();
+    const transactionId = crypto.randomUUID();
+    await db.insert(walletTransactions).values({ ...transaction, id: transactionId });
+    const [newTransaction] = await db.select().from(walletTransactions).where(eq(walletTransactions.id, transactionId));
     
     // Update wallet balance
     const amount = parseFloat(transaction.amount);
@@ -371,7 +398,9 @@ export class DatabaseStorage implements IStorage {
 
   // Withdrawal System
   async createWithdrawalRequest(request: InsertWithdrawalRequest & { userId: string }): Promise<WithdrawalRequest> {
-    const [withdrawalRequest] = await db.insert(withdrawalRequests).values(request).returning();
+    const requestId = crypto.randomUUID();
+    await db.insert(withdrawalRequests).values({ ...request, id: requestId });
+    const [withdrawalRequest] = await db.select().from(withdrawalRequests).where(eq(withdrawalRequests.id, requestId));
     return withdrawalRequest;
   }
 
@@ -388,29 +417,31 @@ export class DatabaseStorage implements IStorage {
   async processWithdrawalRequest(requestId: string, adminId: string, approved: boolean, notes?: string): Promise<WithdrawalRequest> {
     const status = approved ? 'processed' : 'rejected';
     
-    const [request] = await db.update(withdrawalRequests).set({
+    await db.update(withdrawalRequests).set({
       status,
       processedBy: adminId,
       processedAt: new Date(),
       adminNotes: notes,
-    }).where(eq(withdrawalRequests.id, requestId)).returning();
+    }).where(eq(withdrawalRequests.id, requestId));
+    
+    const [updatedRequest] = await db.select().from(withdrawalRequests).where(eq(withdrawalRequests.id, requestId));
 
     // If approved, deduct from wallet
     if (approved) {
-      const wallet = await this.getUserWallet(request.userId);
+      const wallet = await this.getUserWallet(updatedRequest.userId);
       await this.addWalletTransaction({
-        userId: request.userId,
+        userId: updatedRequest.userId,
         walletId: wallet.id,
         type: 'withdrawal',
-        amount: request.amount,
-        description: `Withdrawal processed - ${request.paymentMethod}`,
+        amount: updatedRequest.amount,
+        description: `Withdrawal processed - ${updatedRequest.paymentMethod}`,
         status: 'completed',
         referenceType: 'withdrawal',
         referenceId: requestId,
       });
     }
 
-    return request;
+    return updatedRequest;
   }
 
   // Referral System
@@ -489,12 +520,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCampaign(campaignData: InsertCampaign): Promise<Campaign> {
-    const [campaign] = await db.insert(campaigns).values(campaignData).returning();
+    const [campaign] = await db.insert(campaigns).values(campaignData);
     return campaign;
   }
 
   async updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign> {
-    const [campaign] = await db.update(campaigns).set(updates).where(eq(campaigns.id, id)).returning();
+    const [campaign] = await db.update(campaigns).set(updates).where(eq(campaigns.id, id));
     return campaign;
   }
 
@@ -507,12 +538,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCampaignApplication(application: Omit<CampaignApplication, 'id' | 'appliedAt'>): Promise<CampaignApplication> {
-    const [newApplication] = await db.insert(campaignApplications).values(application).returning();
+    const [newApplication] = await db.insert(campaignApplications).values(application);
     return newApplication;
   }
 
   async updateCampaignApplication(id: string, updates: Partial<CampaignApplication>): Promise<CampaignApplication> {
-    const [application] = await db.update(campaignApplications).set(updates).where(eq(campaignApplications.id, id)).returning();
+    const [application] = await db.update(campaignApplications).set(updates).where(eq(campaignApplications.id, id));
     return application;
   }
 
@@ -536,7 +567,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTestimonial(testimonialData: InsertTestimonial): Promise<Testimonial> {
-    const [testimonial] = await db.insert(testimonials).values(testimonialData).returning();
+    const [testimonial] = await db.insert(testimonials).values(testimonialData);
     return testimonial;
   }
 
@@ -550,7 +581,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createBlogPost(postData: InsertBlogPost): Promise<BlogPost> {
-    const [post] = await db.insert(blogPosts).values(postData).returning();
+    const [post] = await db.insert(blogPosts).values(postData);
     return post;
   }
 
@@ -558,7 +589,7 @@ export class DatabaseStorage implements IStorage {
     const [existing] = await db.select().from(newsletters).where(eq(newsletters.email, email));
     if (existing) return existing;
 
-    const [newsletter] = await db.insert(newsletters).values({ email }).returning();
+    const [newsletter] = await db.insert(newsletters).values({ email });
     return newsletter;
   }
 

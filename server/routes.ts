@@ -68,6 +68,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       req.session.user = user;
       res.json({ user: { ...user, password: undefined } });
     } catch (error: any) {
+      console.error("Login error:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Validation error", errors: error.errors });
       }
