@@ -43,7 +43,7 @@ Preferred communication style: Simple, everyday language.
 - **Referrals**: 5-level referral system tracking with commission rates (10%, 5%, 4%, 3%, 2%)
 
 ### Authentication and Authorization
-- **Session Management**: Express sessions with PostgreSQL storage and bcrypt password hashing
+- **Session Management**: Express sessions with memory storage (development) and bcrypt password hashing
 - **User Roles**: Two-tier system (Admin, User) with different privileges and dashboard access
 - **Profile Validation**: Zod schemas for user registration, login, and task management
 - **File Upload Security**: Object storage integration with 1GB file upload limits

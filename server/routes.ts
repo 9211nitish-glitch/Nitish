@@ -1,7 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
-import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 import { 
   insertUserSchema, 
@@ -16,14 +15,8 @@ import "./types"; // Import session type extension
 
 // Session middleware
 function setupSession(app: Express) {
-  const PgSession = connectPg(session);
-  
   app.use(session({
-    store: new PgSession({
-      conString: process.env.DATABASE_URL,
-      createTableIfMissing: false,
-      tableName: 'sessions',
-    }),
+    // Use memory store for development (default)
     secret: process.env.SESSION_SECRET || 'dev-secret-key',
     resave: false,
     saveUninitialized: false,
