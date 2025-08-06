@@ -12,6 +12,7 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import "./types"; // Import session type extension
 
 // Session middleware
 function setupSession(app: Express) {
@@ -118,7 +119,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const taskData = insertTaskSchema.parse(req.body);
       const task = await storage.createTask({
         ...taskData,
-        createdBy: req.session.user.id,
+        createdBy: req.session.user!.id,
       });
       
       // Assign to users if specified
@@ -156,7 +157,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/admin/task-assignments/:id/approve", requireAuth, requireAdmin, async (req, res) => {
     try {
-      const assignment = await storage.approveTaskSubmission(req.params.id, req.session.user.id);
+      const assignment = await storage.approveTaskSubmission(req.params.id, req.session.user!.id);
       res.json(assignment);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -169,7 +170,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!comments) {
         return res.status(400).json({ message: "Comments are required for rejection" });
       }
-      const assignment = await storage.rejectTaskSubmission(req.params.id, req.session.user.id, comments);
+      const assignment = await storage.rejectTaskSubmission(req.params.id, req.session.user!.id, comments);
       res.json(assignment);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -182,7 +183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!comments) {
         return res.status(400).json({ message: "Comments are required for reassignment" });
       }
-      const assignment = await storage.reassignTask(req.params.id, req.session.user.id, comments);
+      const assignment = await storage.reassignTask(req.params.id, req.session.user!.id, comments);
       res.json(assignment);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -192,7 +193,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User Task Routes
   app.get("/api/user/tasks", requireAuth, async (req, res) => {
     try {
-      const tasks = await storage.getUserTasks(req.session.user.id);
+      const tasks = await storage.getUserTasks(req.session.user!.id);
       res.json(tasks);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -233,7 +234,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Wallet Routes
   app.get("/api/user/wallet", requireAuth, async (req, res) => {
     try {
-      const wallet = await storage.getUserWallet(req.session.user.id);
+      const wallet = await storage.getUserWallet(req.session.user!.id);
       res.json(wallet);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -242,7 +243,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/user/wallet/transactions", requireAuth, async (req, res) => {
     try {
-      const transactions = await storage.getWalletTransactions(req.session.user.id);
+      const transactions = await storage.getWalletTransactions(req.session.user!.id);
       res.json(transactions);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -258,13 +259,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user has sufficient balance
-      const wallet = await storage.getUserWallet(req.session.user.id);
-      if (parseFloat(wallet.balance) < parseFloat(amount)) {
+      const wallet = await storage.getUserWallet(req.session.user!.id);
+      if (parseFloat(wallet.balance || "0") < parseFloat(amount)) {
         return res.status(400).json({ message: "Insufficient balance" });
       }
 
       const request = await storage.createWithdrawalRequest({
-        userId: req.session.user.id,
+        userId: req.session.user!.id,
         amount,
         paymentMethod,
         paymentDetails,
@@ -278,7 +279,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/user/withdrawal-requests", requireAuth, async (req, res) => {
     try {
-      const requests = await storage.getWithdrawalRequests(req.session.user.id);
+      const requests = await storage.getWithdrawalRequests(req.session.user!.id);
       res.json(requests);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -300,7 +301,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { approved, notes } = req.body;
       const request = await storage.processWithdrawalRequest(
         req.params.id, 
-        req.session.user.id, 
+        req.session.user!.id, 
         approved, 
         notes
       );
@@ -313,7 +314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Referral Routes
   app.get("/api/user/referrals", requireAuth, async (req, res) => {
     try {
-      const referrals = await storage.getReferralTree(req.session.user.id);
+      const referrals = await storage.getReferralTree(req.session.user!.id);
       res.json(referrals);
     } catch (error: any) {
       res.status(500).json({ message: error.message });

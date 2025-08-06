@@ -176,7 +176,7 @@ export default function Login() {
                   <Label htmlFor="phone">Phone (Optional)</Label>
                   <Input
                     id="phone"
-                    value={registerForm.phone}
+                    value={registerForm.phone || ""}
                     onChange={(e) => setRegisterForm(prev => ({ ...prev, phone: e.target.value }))}
                     data-testid="input-phone"
                   />
@@ -186,7 +186,7 @@ export default function Login() {
                   <Label htmlFor="referralCode">Referral Code (Optional)</Label>
                   <Input
                     id="referralCode"
-                    value={registerForm.referredBy}
+                    value={registerForm.referredBy || ""}
                     onChange={(e) => setRegisterForm(prev => ({ ...prev, referredBy: e.target.value }))}
                     placeholder="Enter referral code to earn commission"
                     data-testid="input-referral-code"
