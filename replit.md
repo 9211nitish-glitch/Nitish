@@ -1,8 +1,8 @@
-# Stars Flock - Creator Platform
+# TaskFlow - Admin/User Task Management Platform
 
 ## Overview
 
-Stars Flock is a full-stack creator platform that connects content creators and influencers with brands for paid collaborations. The platform features separate experiences for creators and brands, campaign management, user registration, testimonials, and a newsletter system. Built with modern web technologies, it provides both online and onsite campaign opportunities with a tiered creator system (Rising Star and Legendary Star).
+TaskFlow is a comprehensive admin/user task management platform where admins can post tasks with file uploads (up to 1GB per file), assign them to users, and manage reviews. Users can accept/skip tasks, submit work with file uploads, and earn through a 5-level referral system (10%, 5%, 4%, 3%, 2%). The platform includes wallet functionality for earnings tracking, withdrawal requests, transaction management, and a complete authentication system with bcrypt password hashing.
 
 ## User Preferences
 
@@ -34,17 +34,19 @@ Preferred communication style: Simple, everyday language.
 - **Session Storage**: PostgreSQL-based session storage with connect-pg-simple
 
 ### Database Schema Design
-- **Users**: Creator profiles with social media integration, follower counts, earnings tracking, and referral system
-- **Campaigns**: Brand campaigns with requirements, compensation, deadlines, and participant limits
-- **Applications**: Campaign application tracking with status management
-- **Testimonials**: Creator testimonials with visibility controls
-- **Blog Posts**: Content management for platform blog
-- **Newsletter**: Email subscription management
+- **Users**: User profiles with authentication, admin privileges, wallet tracking, and referral codes
+- **Tasks**: Admin-created tasks with file attachments, compensation, deadlines, and assignment limits
+- **Task Assignments**: Assignment tracking between users and tasks with status management (pending, accepted, submitted, approved, rejected)
+- **Wallets**: User wallet tracking with balance, total earned, and total withdrawn
+- **Wallet Transactions**: Transaction history for payments, referral bonuses, and withdrawals
+- **Withdrawal Requests**: User withdrawal requests with admin approval workflow
+- **Referrals**: 5-level referral system tracking with commission rates (10%, 5%, 4%, 3%, 2%)
 
 ### Authentication and Authorization
-- **Session Management**: Express sessions with PostgreSQL storage
-- **User Tiers**: Two-tier system (Rising Star, Legendary Star) with different privileges
-- **Profile Validation**: Zod schemas for user registration and profile updates
+- **Session Management**: Express sessions with PostgreSQL storage and bcrypt password hashing
+- **User Roles**: Two-tier system (Admin, User) with different privileges and dashboard access
+- **Profile Validation**: Zod schemas for user registration, login, and task management
+- **File Upload Security**: Object storage integration with 1GB file upload limits
 
 ### Component Architecture
 - **Design System**: Consistent component library with variant-based styling
