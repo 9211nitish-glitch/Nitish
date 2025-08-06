@@ -24,6 +24,8 @@ export const users = mysqlTable("users", {
   isActive: boolean("is_active").default(true),
   role: varchar("role", { length: 50 }).default("user"), // admin, user
   isAdmin: boolean("is_admin").default(false),
+  isBlocked: boolean("is_blocked").default(false),
+  currentPackageId: varchar("current_package_id", { length: 36 }),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
@@ -176,6 +178,67 @@ export const newsletters = mysqlTable("newsletters", {
   email: varchar("email", { length: 255 }).notNull().unique(),
   isActive: boolean("is_active").default(true),
   subscribedAt: timestamp("subscribed_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Package system for task/skip limits
+export const packages = mysqlTable("packages", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description").notNull(),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  taskLimit: int("task_limit").notNull(), // Maximum tasks user can accept
+  skipLimit: int("skip_limit").notNull(), // Maximum tasks user can skip
+  durationDays: int("duration_days").notNull(), // Package validity in days
+  qrCodeImage: text("qr_code_image"), // QR code for payment
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+// User package purchases and status
+export const userPackages = mysqlTable("user_packages", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  packageId: varchar("package_id", { length: 36 }).notNull().references(() => packages.id),
+  status: varchar("status", { length: 50 }).default("pending"), // pending, active, expired
+  tasksUsed: int("tasks_used").default(0),
+  skipsUsed: int("skips_used").default(0),
+  activatedAt: timestamp("activated_at"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Payment submissions for package activation
+export const paymentSubmissions = mysqlTable("payment_submissions", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  packageId: varchar("package_id", { length: 36 }).notNull().references(() => packages.id),
+  screenshotUrl: text("screenshot_url").notNull(),
+  utrNumber: varchar("utr_number", { length: 50 }).notNull(),
+  status: varchar("status", { length: 50 }).default("pending"), // pending, approved, rejected
+  reviewedBy: varchar("reviewed_by", { length: 36 }).references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  rejectionReason: text("rejection_reason"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Chat system for admin-user communication
+export const chatConversations = mysqlTable("chat_conversations", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  subject: varchar("subject", { length: 255 }).notNull(),
+  status: varchar("status", { length: 50 }).default("open"), // open, closed
+  lastMessageAt: timestamp("last_message_at").default(sql`CURRENT_TIMESTAMP`),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const chatMessages = mysqlTable("chat_messages", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  conversationId: varchar("conversation_id", { length: 36 }).notNull().references(() => chatConversations.id),
+  senderId: varchar("sender_id", { length: 36 }).notNull().references(() => users.id),
+  message: text("message").notNull(),
+  isAdminMessage: boolean("is_admin_message").default(false),
+  attachments: json("attachments"), // Array of attachment URLs
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
 // Real-time campaign tracking tables

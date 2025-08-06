@@ -26,7 +26,6 @@ export default function AdminDashboard() {
     timeLimit: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
     submissionDeadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
     maxAssignees: 10,
-    createdBy: "",
   });
 
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
@@ -66,7 +65,6 @@ export default function AdminDashboard() {
         timeLimit: new Date(Date.now() + 24 * 60 * 60 * 1000),
         submissionDeadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         maxAssignees: 10,
-        createdBy: "",
       });
       setSelectedUsers([]);
       setTaskImageFiles([]);
@@ -146,54 +144,52 @@ export default function AdminDashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        {/* Quick Access Navigation */}
+
+
         <div className="mb-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5" />
-                Campaign Analytics & Creator Matching
-              </CardTitle>
-              <CardDescription>Access advanced campaign tracking and AI-powered creator matching</CardDescription>
+              <CardTitle>Quick Actions</CardTitle>
+              <CardDescription>Access key admin functions</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Button
                   variant="outline"
                   className="h-auto flex-col py-4 gap-2"
+                  onClick={() => window.open('/packages', '_blank')}
+                  data-testid="btn-packages"
+                >
+                  <DollarSign className="w-6 h-6 text-green-600" />
+                  <div className="text-center">
+                    <div className="font-medium">View Packages</div>
+                    <div className="text-xs text-muted-foreground">Available task packages</div>
+                  </div>
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  className="h-auto flex-col py-4 gap-2"
+                  onClick={() => window.open('/admin/packages', '_blank')}
+                  data-testid="btn-admin-packages"
+                >
+                  <Users className="w-6 h-6 text-blue-600" />
+                  <div className="text-center">
+                    <div className="font-medium">Manage Packages</div>
+                    <div className="text-xs text-muted-foreground">Admin package management</div>
+                  </div>
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  className="h-auto flex-col py-4 gap-2"
                   onClick={() => window.open('/live-performance', '_blank')}
                   data-testid="btn-live-performance"
                 >
-                  <Activity className="w-6 h-6 text-primary" />
+                  <FileText className="w-6 h-6 text-primary" />
                   <div className="text-center">
                     <div className="font-medium">Live Performance</div>
-                    <div className="text-xs text-muted-foreground">Real-time campaign metrics</div>
-                  </div>
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  className="h-auto flex-col py-4 gap-2"
-                  onClick={() => window.open('/campaign/campaign1/analytics', '_blank')}
-                  data-testid="btn-campaign-analytics"
-                >
-                  <BarChart3 className="w-6 h-6 text-blue-600" />
-                  <div className="text-center">
-                    <div className="font-medium">Campaign Analytics</div>
-                    <div className="text-xs text-muted-foreground">Detailed performance analysis</div>
-                  </div>
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  className="h-auto flex-col py-4 gap-2"
-                  onClick={() => window.open('/campaign/campaign1/matching', '_blank')}
-                  data-testid="btn-creator-matching"
-                >
-                  <Target className="w-6 h-6 text-green-600" />
-                  <div className="text-center">
-                    <div className="font-medium">Creator Matching</div>
-                    <div className="text-xs text-muted-foreground">AI-powered recommendations</div>
+                    <div className="text-xs text-muted-foreground">Real-time metrics</div>
                   </div>
                 </Button>
               </div>

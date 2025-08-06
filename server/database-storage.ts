@@ -15,6 +15,9 @@ import {
   testimonials,
   blogPosts,
   newsletters,
+  packages,
+  userPackages,
+  paymentSubmissions,
   type User, 
   type InsertUser, 
   type Campaign, 
@@ -84,6 +87,19 @@ export interface IStorage {
   processReferral(referredUserId: string, referrerCode: string): Promise<void>;
   getReferralTree(userId: string): Promise<Referral[]>;
   calculateReferralCommission(amount: number, level: number): number;
+  
+  // Package Management
+  getActivePackages(): Promise<any[]>;
+  getAllPackages(): Promise<any[]>;
+  createPackage(packageData: any): Promise<any>;
+  updatePackage(id: string, packageData: any): Promise<any>;
+  getUserCurrentPackage(userId: string): Promise<any>;
+  getUserPaymentSubmissions(userId: string): Promise<any[]>;
+  submitPaymentProof(data: any): Promise<any>;
+  getAllPaymentSubmissions(): Promise<any[]>;
+  reviewPaymentSubmission(id: string, action: string, reason: string, adminId: string): Promise<any>;
+  getAllUserPackages(): Promise<any[]>;
+  assignPackageToUser(userId: string, packageId: string): Promise<any>;
   
   // Legacy methods (keeping for backward compatibility)
   getCampaign(id: string): Promise<Campaign | undefined>;
@@ -522,6 +538,390 @@ export class DatabaseStorage implements IStorage {
   async createCampaign(campaignData: InsertCampaign): Promise<Campaign> {
     const [campaign] = await db.insert(campaigns).values(campaignData);
     return campaign;
+  }
+
+  // Package Management Methods
+  async getActivePackages(): Promise<any[]> {
+    try {
+      const activePackages = await db.select().from(packages).where(eq(packages.isActive, true));
+      return activePackages;
+    } catch (error) {
+      console.error("Database error in getActivePackages:", error);
+      return [];
+    }
+  }
+
+  async getAllPackages(): Promise<any[]> {
+    try {
+      return await db.select().from(packages).orderBy(desc(packages.createdAt));
+    } catch (error) {
+      console.error("Database error in getAllPackages:", error);
+      return [];
+    }
+  }
+
+  async createPackage(packageData: any): Promise<any> {
+    try {
+      const [newPackage] = await db.insert(packages).values({
+        name: packageData.name,
+        description: packageData.description,
+        price: packageData.price.toString(),
+        taskLimit: packageData.taskLimit,
+        skipLimit: packageData.skipLimit,
+        durationDays: packageData.durationDays,
+        qrCodeImage: packageData.qrCodeImage || null,
+        isActive: true,
+      }).returning();
+      return newPackage;
+    } catch (error) {
+      console.error("Database error in createPackage:", error);
+      throw new Error("Failed to create package");
+    }
+  }
+
+  async updatePackage(id: string, packageData: any): Promise<any> {
+    try {
+      const [updatedPackage] = await db.update(packages).set({
+        name: packageData.name,
+        description: packageData.description,
+        price: packageData.price.toString(),
+        taskLimit: packageData.taskLimit,
+        skipLimit: packageData.skipLimit,
+        durationDays: packageData.durationDays,
+        qrCodeImage: packageData.qrCodeImage || null,
+      }).where(eq(packages.id, id)).returning();
+      
+      if (!updatedPackage) {
+        throw new Error("Package not found");
+      }
+      return updatedPackage;
+    } catch (error) {
+      console.error("Database error in updatePackage:", error);
+      throw new Error("Failed to update package");
+    }
+  }
+
+  async getUserCurrentPackage(userId: string): Promise<any> {
+    try {
+      const userCurrentPackage = await db
+        .select({
+          id: userPackages.id,
+          packageId: userPackages.packageId,
+          status: userPackages.status,
+          tasksUsed: userPackages.tasksUsed,
+          skipsUsed: userPackages.skipsUsed,
+          activatedAt: userPackages.activatedAt,
+          expiresAt: userPackages.expiresAt,
+          package: {
+            id: packages.id,
+            name: packages.name,
+            taskLimit: packages.taskLimit,
+            skipLimit: packages.skipLimit,
+            durationDays: packages.durationDays,
+          }
+        })
+        .from(userPackages)
+        .leftJoin(packages, eq(userPackages.packageId, packages.id))
+        .where(and(
+          eq(userPackages.userId, userId),
+          eq(userPackages.status, 'active')
+        ))
+        .limit(1);
+
+      return userCurrentPackage[0] || null;
+    } catch (error) {
+      console.error("Database error in getUserCurrentPackage:", error);
+      return null;
+    }
+  }
+
+  async getUserPaymentSubmissions(userId: string): Promise<any[]> {
+    try {
+      const submissions = await db
+        .select({
+          id: paymentSubmissions.id,
+          packageId: paymentSubmissions.packageId,
+          screenshotUrl: paymentSubmissions.screenshotUrl,
+          utrNumber: paymentSubmissions.utrNumber,
+          status: paymentSubmissions.status,
+          rejectionReason: paymentSubmissions.rejectionReason,
+          createdAt: paymentSubmissions.createdAt,
+          package: {
+            id: packages.id,
+            name: packages.name,
+            price: packages.price,
+          }
+        })
+        .from(paymentSubmissions)
+        .leftJoin(packages, eq(paymentSubmissions.packageId, packages.id))
+        .where(eq(paymentSubmissions.userId, userId))
+        .orderBy(desc(paymentSubmissions.createdAt));
+
+      return submissions;
+    } catch (error) {
+      console.error("Database error in getUserPaymentSubmissions:", error);
+      return [];
+    }
+  }
+
+  async submitPaymentProof(data: any): Promise<any> {
+    try {
+      const { userId, packageId, screenshotUrl, utrNumber } = data;
+
+      // Check if user already has an active package
+      const existingActivePackage = await db
+        .select()
+        .from(userPackages)
+        .where(and(
+          eq(userPackages.userId, userId),
+          eq(userPackages.status, 'active')
+        ))
+        .limit(1);
+
+      if (existingActivePackage.length > 0) {
+        throw new Error("You already have an active package");
+      }
+
+      // Check if package exists and is active
+      const packageInfo = await db
+        .select()
+        .from(packages)
+        .where(and(
+          eq(packages.id, packageId),
+          eq(packages.isActive, true)
+        ))
+        .limit(1);
+
+      if (packageInfo.length === 0) {
+        throw new Error("Package not found or inactive");
+      }
+
+      // Create payment submission
+      const [submission] = await db
+        .insert(paymentSubmissions)
+        .values({
+          userId,
+          packageId,
+          screenshotUrl,
+          utrNumber,
+          status: 'pending',
+        })
+        .returning();
+
+      return submission;
+    } catch (error) {
+      console.error("Database error in submitPaymentProof:", error);
+      throw error;
+    }
+  }
+
+  async getAllPaymentSubmissions(): Promise<any[]> {
+    try {
+      const submissions = await db
+        .select({
+          id: paymentSubmissions.id,
+          userId: paymentSubmissions.userId,
+          packageId: paymentSubmissions.packageId,
+          screenshotUrl: paymentSubmissions.screenshotUrl,
+          utrNumber: paymentSubmissions.utrNumber,
+          status: paymentSubmissions.status,
+          reviewedBy: paymentSubmissions.reviewedBy,
+          reviewedAt: paymentSubmissions.reviewedAt,
+          rejectionReason: paymentSubmissions.rejectionReason,
+          createdAt: paymentSubmissions.createdAt,
+          user: {
+            id: users.id,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            email: users.email,
+          },
+          package: {
+            id: packages.id,
+            name: packages.name,
+            price: packages.price,
+          }
+        })
+        .from(paymentSubmissions)
+        .leftJoin(users, eq(paymentSubmissions.userId, users.id))
+        .leftJoin(packages, eq(paymentSubmissions.packageId, packages.id))
+        .orderBy(desc(paymentSubmissions.createdAt));
+
+      return submissions;
+    } catch (error) {
+      console.error("Database error in getAllPaymentSubmissions:", error);
+      return [];
+    }
+  }
+
+  async reviewPaymentSubmission(id: string, action: string, reason: string, adminId: string): Promise<any> {
+    try {
+      if (!['approve', 'reject'].includes(action)) {
+        throw new Error("Invalid action");
+      }
+
+      // Get the submission details
+      const submission = await db
+        .select()
+        .from(paymentSubmissions)
+        .where(eq(paymentSubmissions.id, id))
+        .limit(1);
+
+      if (submission.length === 0) {
+        throw new Error("Submission not found");
+      }
+
+      const submissionData = submission[0];
+
+      if (submissionData.status !== 'pending') {
+        throw new Error("Submission already reviewed");
+      }
+
+      // Update submission status
+      await db
+        .update(paymentSubmissions)
+        .set({
+          status: action === 'approve' ? 'approved' : 'rejected',
+          reviewedBy: adminId,
+          reviewedAt: new Date(),
+          rejectionReason: action === 'reject' ? reason : null,
+        })
+        .where(eq(paymentSubmissions.id, id));
+
+      // If approved, activate the package for user
+      if (action === 'approve') {
+        const packageInfo = await db
+          .select()
+          .from(packages)
+          .where(eq(packages.id, submissionData.packageId))
+          .limit(1);
+
+        if (packageInfo.length > 0) {
+          const pkg = packageInfo[0];
+          const expiresAt = new Date();
+          expiresAt.setDate(expiresAt.getDate() + pkg.durationDays);
+
+          // Deactivate any existing packages
+          await db
+            .update(userPackages)
+            .set({ status: 'expired' })
+            .where(and(
+              eq(userPackages.userId, submissionData.userId),
+              eq(userPackages.status, 'active')
+            ));
+
+          // Create new active package
+          await db
+            .insert(userPackages)
+            .values({
+              userId: submissionData.userId,
+              packageId: submissionData.packageId,
+              status: 'active',
+              tasksUsed: 0,
+              skipsUsed: 0,
+              activatedAt: new Date(),
+              expiresAt,
+            });
+
+          // Update user's current package reference
+          await db
+            .update(users)
+            .set({ currentPackageId: submissionData.packageId })
+            .where(eq(users.id, submissionData.userId));
+        }
+      }
+
+      return { message: `Payment ${action}d successfully` };
+    } catch (error) {
+      console.error("Database error in reviewPaymentSubmission:", error);
+      throw error;
+    }
+  }
+
+  async getAllUserPackages(): Promise<any[]> {
+    try {
+      const userPackagesList = await db
+        .select({
+          id: userPackages.id,
+          userId: userPackages.userId,
+          packageId: userPackages.packageId,
+          status: userPackages.status,
+          tasksUsed: userPackages.tasksUsed,
+          skipsUsed: userPackages.skipsUsed,
+          activatedAt: userPackages.activatedAt,
+          expiresAt: userPackages.expiresAt,
+          user: {
+            id: users.id,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            email: users.email,
+          },
+          package: {
+            id: packages.id,
+            name: packages.name,
+            taskLimit: packages.taskLimit,
+            skipLimit: packages.skipLimit,
+          }
+        })
+        .from(userPackages)
+        .leftJoin(users, eq(userPackages.userId, users.id))
+        .leftJoin(packages, eq(userPackages.packageId, packages.id))
+        .orderBy(desc(userPackages.createdAt));
+
+      return userPackagesList;
+    } catch (error) {
+      console.error("Database error in getAllUserPackages:", error);
+      return [];
+    }
+  }
+
+  async assignPackageToUser(userId: string, packageId: string): Promise<any> {
+    try {
+      // Verify user and package exist
+      const user = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      const packageInfo = await db.select().from(packages).where(eq(packages.id, packageId)).limit(1);
+
+      if (user.length === 0 || packageInfo.length === 0) {
+        throw new Error("User or package not found");
+      }
+
+      const pkg = packageInfo[0];
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + pkg.durationDays);
+
+      // Deactivate any existing packages
+      await db
+        .update(userPackages)
+        .set({ status: 'expired' })
+        .where(and(
+          eq(userPackages.userId, userId),
+          eq(userPackages.status, 'active')
+        ));
+
+      // Create new active package
+      const [newUserPackage] = await db
+        .insert(userPackages)
+        .values({
+          userId,
+          packageId,
+          status: 'active',
+          tasksUsed: 0,
+          skipsUsed: 0,
+          activatedAt: new Date(),
+          expiresAt,
+        })
+        .returning();
+
+      // Update user's current package reference
+      await db
+        .update(users)
+        .set({ currentPackageId: packageId })
+        .where(eq(users.id, userId));
+
+      return newUserPackage;
+    } catch (error) {
+      console.error("Database error in assignPackageToUser:", error);
+      throw error;
+    }
   }
 
   async updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign> {

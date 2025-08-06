@@ -6,7 +6,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import Login from "@/pages/login";
 import AdminDashboard from "@/pages/admin-dashboard";
+import AdminPackages from "@/pages/admin-packages";
 import UserDashboard from "@/pages/user-dashboard";
+import Packages from "@/pages/packages";
 import CampaignAnalytics from "@/pages/campaign-analytics";
 import CreatorMatching from "@/pages/creator-matching";
 import LivePerformance from "@/pages/live-performance";
@@ -54,6 +56,18 @@ function Router() {
       <Route path="/dashboard">
         <ProtectedRoute>
           {isAdmin ? <AdminDashboard /> : <UserDashboard />}
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/packages">
+        <ProtectedRoute>
+          <Packages />
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/admin/packages">
+        <ProtectedRoute>
+          {isAdmin ? <AdminPackages /> : <Redirect to="/packages" />}
         </ProtectedRoute>
       </Route>
 

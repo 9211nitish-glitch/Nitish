@@ -1,6 +1,8 @@
 import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
+import path from "path";
 import { storage } from "./storage";
 import { 
   insertUserSchema, 
@@ -53,6 +55,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize services
   const campaignTracker = new CampaignTrackingService();
   const creatorMatcher = new CreatorMatchingService();
+
+  // Serve uploaded files statically
+  app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
   // Authentication routes
   app.post("/api/auth/login", async (req, res) => {
@@ -600,6 +605,165 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating creator profile:", error);
       res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  // Package Management Routes
+  
+  // Get available packages (public)
+  app.get("/api/packages", async (req, res) => {
+    try {
+      const activePackages = await storage.getActivePackages();
+      res.json(activePackages);
+    } catch (error) {
+      console.error("Error fetching packages:", error);
+      res.status(500).json({ error: "Failed to fetch packages" });
+    }
+  });
+
+  // Get user's current package
+  app.get("/api/user/current-package", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user.id;
+      const userPackage = await storage.getUserCurrentPackage(userId);
+      res.json(userPackage);
+    } catch (error) {
+      console.error("Error fetching user package:", error);
+      res.status(500).json({ error: "Failed to fetch user package" });
+    }
+  });
+
+  // Get user's payment submissions
+  app.get("/api/user/payment-submissions", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user.id;
+      const submissions = await storage.getUserPaymentSubmissions(userId);
+      res.json(submissions);
+    } catch (error) {
+      console.error("Error fetching payment submissions:", error);
+      res.status(500).json({ error: "Failed to fetch payment submissions" });
+    }
+  });
+
+  // Submit payment proof
+  app.post("/api/user/submit-payment", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user.id;
+      const { packageId, screenshotUrl, utrNumber } = req.body;
+
+      if (!packageId || !screenshotUrl || !utrNumber) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const submission = await storage.submitPaymentProof({
+        userId,
+        packageId,
+        screenshotUrl,
+        utrNumber,
+      });
+
+      res.json(submission);
+    } catch (error) {
+      console.error("Error submitting payment:", error);
+      res.status(500).json({ error: error.message || "Failed to submit payment" });
+    }
+  });
+
+  // Admin: Get all packages
+  app.get("/api/admin/packages", requireAdmin, async (req, res) => {
+    try {
+      const packages = await storage.getAllPackages();
+      res.json(packages);
+    } catch (error) {
+      console.error("Error fetching admin packages:", error);
+      res.status(500).json({ error: "Failed to fetch packages" });
+    }
+  });
+
+  // Admin: Create new package
+  app.post("/api/admin/packages", requireAdmin, async (req, res) => {
+    try {
+      const packageData = req.body;
+      const newPackage = await storage.createPackage(packageData);
+      res.json(newPackage);
+    } catch (error) {
+      console.error("Error creating package:", error);
+      res.status(500).json({ error: "Failed to create package" });
+    }
+  });
+
+  // Admin: Update package
+  app.put("/api/admin/packages/:id", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const packageData = req.body;
+      const updatedPackage = await storage.updatePackage(id, packageData);
+      res.json(updatedPackage);
+    } catch (error) {
+      console.error("Error updating package:", error);
+      res.status(500).json({ error: "Failed to update package" });
+    }
+  });
+
+  // Admin: Get payment submissions for review
+  app.get("/api/admin/payment-submissions", requireAdmin, async (req, res) => {
+    try {
+      const submissions = await storage.getAllPaymentSubmissions();
+      res.json(submissions);
+    } catch (error) {
+      console.error("Error fetching payment submissions:", error);
+      res.status(500).json({ error: "Failed to fetch payment submissions" });
+    }
+  });
+
+  // Admin: Review payment submission
+  app.post("/api/admin/payment-submissions/:id/review", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { action, reason } = req.body;
+      const adminId = req.session.user.id;
+
+      const result = await storage.reviewPaymentSubmission(id, action, reason, adminId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error reviewing payment:", error);
+      res.status(500).json({ error: error.message || "Failed to review payment" });
+    }
+  });
+
+  // Admin: Get user packages
+  app.get("/api/admin/user-packages", requireAdmin, async (req, res) => {
+    try {
+      const userPackages = await storage.getAllUserPackages();
+      res.json(userPackages);
+    } catch (error) {
+      console.error("Error fetching user packages:", error);
+      res.status(500).json({ error: "Failed to fetch user packages" });
+    }
+  });
+
+  // Admin: Assign package to user
+  app.post("/api/admin/assign-package", requireAdmin, async (req, res) => {
+    try {
+      const { userId, packageId } = req.body;
+      const result = await storage.assignPackageToUser(userId, packageId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error assigning package:", error);
+      res.status(500).json({ error: error.message || "Failed to assign package" });
+    }
+  });
+
+  // File upload endpoint
+  app.post("/api/upload", requireAuth, (req, res) => {
+    try {
+      // This would be handled by multer middleware in a real implementation
+      // For now, return a mock URL
+      const fileUrl = `/uploads/mock-${Date.now()}.jpg`;
+      res.json({ url: fileUrl });
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      res.status(500).json({ error: "Failed to upload file" });
     }
   });
 

@@ -47,6 +47,19 @@ export interface IStorage {
   // Newsletter
   subscribeToNewsletter(email: string): Promise<Newsletter>;
   isEmailSubscribed(email: string): Promise<boolean>;
+
+  // Package management
+  getActivePackages(): Promise<any[]>;
+  getAllPackages(): Promise<any[]>;
+  createPackage(packageData: any): Promise<any>;
+  updatePackage(id: string, packageData: any): Promise<any>;
+  getUserCurrentPackage(userId: string): Promise<any>;
+  getUserPaymentSubmissions(userId: string): Promise<any[]>;
+  submitPaymentProof(data: any): Promise<any>;
+  getAllPaymentSubmissions(): Promise<any[]>;
+  reviewPaymentSubmission(id: string, action: string, reason: string, adminId: string): Promise<any>;
+  getAllUserPackages(): Promise<any[]>;
+  assignPackageToUser(userId: string, packageId: string): Promise<any>;
 }
 
 export class MemStorage implements IStorage {
@@ -56,6 +69,9 @@ export class MemStorage implements IStorage {
   private testimonials: Map<string, Testimonial>;
   private blogPosts: Map<string, BlogPost>;
   private newsletters: Map<string, Newsletter>;
+  private packages: Map<string, any>;
+  private userPackages: Map<string, any>;
+  private paymentSubmissions: Map<string, any>;
 
   constructor() {
     this.users = new Map();
@@ -64,6 +80,9 @@ export class MemStorage implements IStorage {
     this.testimonials = new Map();
     this.blogPosts = new Map();
     this.newsletters = new Map();
+    this.packages = new Map();
+    this.userPackages = new Map();
+    this.paymentSubmissions = new Map();
     
     this.initializeData();
   }
