@@ -178,6 +178,71 @@ export const newsletters = mysqlTable("newsletters", {
   subscribedAt: timestamp("subscribed_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
+// Real-time campaign tracking tables
+export const campaignMetrics = mysqlTable("campaign_metrics", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  campaignId: varchar("campaign_id", { length: 36 }).notNull().references(() => campaigns.id),
+  totalViews: int("total_views").default(0),
+  totalApplications: int("total_applications").default(0),
+  totalAccepted: int("total_accepted").default(0),
+  totalCompleted: int("total_completed").default(0),
+  totalPaid: int("total_paid").default(0),
+  conversionRate: decimal("conversion_rate", { precision: 5, scale: 2 }).default("0.00"),
+  averageRating: decimal("average_rating", { precision: 3, scale: 2 }).default("0.00"),
+  totalBudgetSpent: decimal("total_budget_spent", { precision: 10, scale: 2 }).default("0.00"),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`),
+});
+
+export const campaignEvents = mysqlTable("campaign_events", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  campaignId: varchar("campaign_id", { length: 36 }).notNull().references(() => campaigns.id),
+  userId: varchar("user_id", { length: 36 }).references(() => users.id),
+  eventType: varchar("event_type", { length: 50 }).notNull(), // view, apply, accept, complete, rate, payment
+  eventData: json("event_data"), // Additional event details
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Creator-brand matching system
+export const creatorProfiles = mysqlTable("creator_profiles", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  userId: varchar("user_id", { length: 36 }).notNull().unique().references(() => users.id),
+  categories: json("categories"), // Array of interested categories
+  platforms: json("platforms"), // Array of social platforms with follower counts
+  demographics: json("demographics"), // Age range, gender, location
+  engagementRate: decimal("engagement_rate", { precision: 5, scale: 2 }).default("0.00"),
+  averageViews: int("average_views").default(0),
+  collaborationPreferences: json("collaboration_preferences"), // Online/offline, budget range
+  portfolioItems: json("portfolio_items"), // Past work samples
+  isVerified: boolean("is_verified").default(false),
+  matchingScore: int("matching_score").default(0),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`),
+});
+
+export const brandPreferences = mysqlTable("brand_preferences", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  campaignId: varchar("campaign_id", { length: 36 }).notNull().references(() => campaigns.id),
+  preferredCategories: json("preferred_categories"),
+  requiredPlatforms: json("required_platforms"),
+  minFollowerCount: int("min_follower_count").default(0),
+  maxFollowerCount: int("max_follower_count").default(1000000),
+  preferredDemographics: json("preferred_demographics"),
+  budgetRange: json("budget_range"), // min, max
+  locationPreferences: json("location_preferences"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const matchingResults = mysqlTable("matching_results", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
+  campaignId: varchar("campaign_id", { length: 36 }).notNull().references(() => campaigns.id),
+  creatorId: varchar("creator_id", { length: 36 }).notNull().references(() => users.id),
+  matchScore: decimal("match_score", { precision: 5, scale: 2 }).notNull(),
+  matchFactors: json("match_factors"), // Breakdown of scoring factors
+  isRecommended: boolean("is_recommended").default(false),
+  status: varchar("status", { length: 50 }).default("suggested"), // suggested, contacted, accepted, declined
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -225,6 +290,26 @@ export const insertNewsletterSchema = createInsertSchema(newsletters).pick({
   email: true,
 });
 
+export const insertCreatorProfileSchema = createInsertSchema(creatorProfiles).pick({
+  categories: true,
+  platforms: true,
+  demographics: true,
+  engagementRate: true,
+  averageViews: true,
+  collaborationPreferences: true,
+  portfolioItems: true,
+});
+
+export const insertBrandPreferencesSchema = createInsertSchema(brandPreferences).pick({
+  preferredCategories: true,
+  requiredPlatforms: true,
+  minFollowerCount: true,
+  maxFollowerCount: true,
+  preferredDemographics: true,
+  budgetRange: true,
+  locationPreferences: true,
+});
+
 // New insert schemas for admin system
 export const insertTaskSchema = createInsertSchema(tasks).pick({
   title: true,
@@ -246,11 +331,8 @@ export const insertTaskAssignmentSchema = createInsertSchema(taskAssignments).pi
 
 export const insertWithdrawalRequestSchema = createInsertSchema(withdrawalRequests).pick({
   amount: true,
-  bankAccountNumber: true,
-  bankIFSC: true,
-  bankAccountHolder: true,
-  upiId: true,
   paymentMethod: true,
+  paymentDetails: true,
 });
 
 // Auth schemas
@@ -378,5 +460,13 @@ export type WalletTransaction = typeof walletTransactions.$inferSelect;
 export type InsertWithdrawalRequest = z.infer<typeof insertWithdrawalRequestSchema>;
 export type WithdrawalRequest = typeof withdrawalRequests.$inferSelect;
 export type Referral = typeof referrals.$inferSelect;
-export type LoginCredentials = z.infer<typeof loginSchema>;
 export type RegisterData = z.infer<typeof registerSchema>;
+
+// New types for campaign tracking and matching
+export type CampaignMetrics = typeof campaignMetrics.$inferSelect;
+export type CampaignEvent = typeof campaignEvents.$inferSelect;
+export type CreatorProfile = typeof creatorProfiles.$inferSelect;
+export type InsertCreatorProfile = z.infer<typeof insertCreatorProfileSchema>;
+export type BrandPreferences = typeof brandPreferences.$inferSelect;
+export type InsertBrandPreferences = z.infer<typeof insertBrandPreferencesSchema>;
+export type MatchingResult = typeof matchingResults.$inferSelect;

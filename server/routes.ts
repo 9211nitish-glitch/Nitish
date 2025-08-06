@@ -11,6 +11,8 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { CampaignTrackingService } from "./campaignTrackingService";
+import { CreatorMatchingService } from "./creatorMatchingService";
 import "./types"; // Import session type extension
 
 // Session middleware
@@ -47,6 +49,10 @@ function requireAdmin(req: any, res: any, next: any) {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup session middleware
   setupSession(app);
+
+  // Initialize services
+  const campaignTracker = new CampaignTrackingService();
+  const creatorMatcher = new CreatorMatchingService();
 
   // Authentication routes
   app.post("/api/auth/login", async (req, res) => {
@@ -510,6 +516,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(stats);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ===== REAL-TIME CAMPAIGN TRACKING ROUTES =====
+  
+  // Track campaign event (views, applications, etc.)
+  app.post("/api/campaigns/:campaignId/track", async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const { eventType, eventData } = req.body;
+      const userId = req.session?.user?.id;
+
+      await campaignTracker.trackEvent(campaignId, eventType, userId, eventData);
+      res.status(200).json({ message: "Event tracked successfully" });
+    } catch (error) {
+      console.error("Error tracking campaign event:", error);
+      res.status(500).json({ message: "Failed to track event" });
+    }
+  });
+
+  // Get real-time campaign analytics
+  app.get("/api/campaigns/:campaignId/analytics", requireAuth, async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const analytics = await campaignTracker.getCampaignAnalytics(campaignId);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error getting campaign analytics:", error);
+      res.status(500).json({ message: "Failed to get analytics" });
+    }
+  });
+
+  // Get live campaign performance dashboard
+  app.get("/api/campaigns/live-performance", requireAuth, async (req, res) => {
+    try {
+      const performance = await campaignTracker.getLiveCampaignPerformance();
+      res.json(performance);
+    } catch (error) {
+      console.error("Error getting live performance:", error);
+      res.status(500).json({ message: "Failed to get live performance" });
+    }
+  });
+
+  // ===== CREATOR-BRAND MATCHING ROUTES =====
+
+  // Get matching creators for a campaign
+  app.get("/api/campaigns/:campaignId/matches", requireAuth, async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const { limit = 20 } = req.query;
+      
+      const matches = await creatorMatcher.findMatchingCreators(campaignId, parseInt(limit as string));
+      res.json(matches);
+    } catch (error) {
+      console.error("Error finding matching creators:", error);
+      res.status(500).json({ message: "Failed to find matches" });
+    }
+  });
+
+  // Get creator recommendations for a campaign
+  app.get("/api/campaigns/:campaignId/recommendations", requireAuth, async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+      const recommendations = await creatorMatcher.getCreatorRecommendations(campaignId);
+      res.json(recommendations);
+    } catch (error) {
+      console.error("Error getting recommendations:", error);
+      res.status(500).json({ message: "Failed to get recommendations" });
+    }
+  });
+
+  // Update creator profile for better matching
+  app.put("/api/creator/profile", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      await creatorMatcher.updateCreatorProfile(userId, req.body);
+      res.json({ message: "Profile updated successfully" });
+    } catch (error) {
+      console.error("Error updating creator profile:", error);
+      res.status(500).json({ message: "Failed to update profile" });
     }
   });
 

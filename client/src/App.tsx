@@ -7,6 +7,9 @@ import { useAuth } from "@/hooks/useAuth";
 import Login from "@/pages/login";
 import AdminDashboard from "@/pages/admin-dashboard";
 import UserDashboard from "@/pages/user-dashboard";
+import CampaignAnalytics from "@/pages/campaign-analytics";
+import CreatorMatching from "@/pages/creator-matching";
+import LivePerformance from "@/pages/live-performance";
 import NotFound from "@/pages/not-found";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -51,6 +54,24 @@ function Router() {
       <Route path="/dashboard">
         <ProtectedRoute>
           {isAdmin ? <AdminDashboard /> : <UserDashboard />}
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/campaign/:id/analytics">
+        <ProtectedRoute>
+          <CampaignAnalytics />
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/campaign/:id/matching">
+        <ProtectedRoute>
+          <CreatorMatching />
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/live-performance">
+        <ProtectedRoute>
+          <LivePerformance />
         </ProtectedRoute>
       </Route>
       
