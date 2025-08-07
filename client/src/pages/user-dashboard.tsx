@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { TaskFileUploader } from "@/components/TaskFileUploader";
 import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
+import { ShoppingBag, Wallet, FileText } from "lucide-react";
 
 export default function UserDashboard() {
   const { user, logout } = useAuth();
@@ -26,23 +27,23 @@ export default function UserDashboard() {
   });
 
   // Queries
-  const { data: userTasks, isLoading: tasksLoading } = useQuery({
+  const { data: userTasks = [], isLoading: tasksLoading } = useQuery<any[]>({
     queryKey: ['/api/user/tasks'],
   });
 
-  const { data: wallet, isLoading: walletLoading } = useQuery({
+  const { data: wallet, isLoading: walletLoading } = useQuery<any>({
     queryKey: ['/api/user/wallet'],
   });
 
-  const { data: transactions, isLoading: transactionsLoading } = useQuery({
+  const { data: transactions = [], isLoading: transactionsLoading } = useQuery<any[]>({
     queryKey: ['/api/user/wallet/transactions'],
   });
 
-  const { data: withdrawalRequests, isLoading: withdrawalsLoading } = useQuery({
+  const { data: withdrawalRequests = [], isLoading: withdrawalsLoading } = useQuery<any[]>({
     queryKey: ['/api/user/withdrawal-requests'],
   });
 
-  const { data: referrals, isLoading: referralsLoading } = useQuery({
+  const { data: referrals = [], isLoading: referralsLoading } = useQuery<any[]>({
     queryKey: ['/api/user/referrals'],
   });
 
@@ -172,13 +173,98 @@ export default function UserDashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        {/* Quick Actions Section */}
+        <div className="mb-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+              <CardDescription>Access key features and purchase packages</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Button
+                  variant="outline"
+                  className="h-auto flex-col py-4 gap-2"
+                  onClick={() => window.open('/packages', '_self')}
+                  data-testid="btn-packages"
+                >
+                  <ShoppingBag className="w-6 h-6 text-blue-600" />
+                  <div className="text-center">
+                    <div className="font-medium">Buy Packages</div>
+                    <div className="text-xs text-muted-foreground">Purchase task packages</div>
+                  </div>
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  className="h-auto flex-col py-4 gap-2"
+                  onClick={() => {
+                    const element = document.querySelector('[data-testid="tab-wallet"]') as HTMLButtonElement;
+                    if (element) element.click();
+                  }}
+                  data-testid="btn-wallet-quick"
+                >
+                  <Wallet className="w-6 h-6 text-green-600" />
+                  <div className="text-center">
+                    <div className="font-medium">My Wallet</div>
+                    <div className="text-xs text-muted-foreground">View earnings & balance</div>
+                  </div>
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  className="h-auto flex-col py-4 gap-2"
+                  onClick={() => {
+                    const element = document.querySelector('[data-testid="tab-tasks"]') as HTMLButtonElement;
+                    if (element) element.click();
+                  }}
+                  data-testid="btn-tasks-quick"
+                >
+                  <FileText className="w-6 h-6 text-primary" />
+                  <div className="text-center">
+                    <div className="font-medium">My Tasks</div>
+                    <div className="text-xs text-muted-foreground">View assigned tasks</div>
+                  </div>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         <Tabs defaultValue="tasks" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="packages" data-testid="tab-packages">Packages</TabsTrigger>
             <TabsTrigger value="tasks" data-testid="tab-tasks">My Tasks</TabsTrigger>
             <TabsTrigger value="wallet" data-testid="tab-wallet">Wallet</TabsTrigger>
             <TabsTrigger value="withdrawals" data-testid="tab-withdrawals">Withdrawals</TabsTrigger>
             <TabsTrigger value="referrals" data-testid="tab-referrals">Referrals</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="packages">
+            <Card>
+              <CardHeader>
+                <CardTitle>Available Packages</CardTitle>
+                <CardDescription>Purchase task packages to start earning</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8">
+                  <ShoppingBag className="w-16 h-16 text-blue-600 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold mb-2">Ready to Get Started?</h3>
+                  <p className="text-gray-600 dark:text-gray-300 mb-4">
+                    Purchase a package to unlock tasks and start earning money through our platform.
+                  </p>
+                  <Button 
+                    size="lg"
+                    onClick={() => window.open('/packages', '_self')}
+                    data-testid="btn-view-packages"
+                  >
+                    <ShoppingBag className="w-5 h-5 mr-2" />
+                    View All Packages
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="tasks">
             <Card>
