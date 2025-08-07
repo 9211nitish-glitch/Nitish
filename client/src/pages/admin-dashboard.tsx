@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { TaskFileUploader } from "@/components/TaskFileUploader";
 import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
+import { DollarSign, Users, FileText } from "lucide-react";
 import type { InsertTask } from "@shared/schema";
 
 export default function AdminDashboard() {
