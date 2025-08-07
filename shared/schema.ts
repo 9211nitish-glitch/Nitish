@@ -189,6 +189,7 @@ export const packages = mysqlTable("packages", {
   taskLimit: int("task_limit").notNull(), // Maximum tasks user can accept
   skipLimit: int("skip_limit").notNull(), // Maximum tasks user can skip
   durationDays: int("duration_days").notNull(), // Package validity in days
+  paymentPerTask: decimal("payment_per_task", { precision: 10, scale: 2 }).notNull().default("5.00"), // Amount paid per completed task
   qrCodeImage: text("qr_code_image"), // QR code for payment
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),

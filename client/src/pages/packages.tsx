@@ -275,6 +275,16 @@ export default function Packages() {
                       </div>
                       <Badge variant="outline">{pkg.durationDays} days</Badge>
                     </div>
+                    
+                    <div className="flex items-center justify-between bg-green-50 p-2 rounded">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="w-4 h-4 text-green-600" />
+                        <span className="text-sm font-medium">Per Task</span>
+                      </div>
+                      <Badge className="bg-green-600 text-white">
+                        ₹{pkg.paymentPerTask || '5.00'}
+                      </Badge>
+                    </div>
                   </div>
 
                   {/* QR Code Display */}

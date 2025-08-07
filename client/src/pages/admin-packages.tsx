@@ -41,6 +41,7 @@ export default function AdminPackages() {
     taskLimit: "",
     skipLimit: "",
     durationDays: "",
+    paymentPerTask: "",
     qrCodeImage: "",
   });
 
@@ -175,6 +176,7 @@ export default function AdminPackages() {
       taskLimit: "",
       skipLimit: "",
       durationDays: "",
+      paymentPerTask: "",
       qrCodeImage: "",
     });
   };
@@ -187,6 +189,7 @@ export default function AdminPackages() {
       taskLimit: parseInt(newPackage.taskLimit),
       skipLimit: parseInt(newPackage.skipLimit),
       durationDays: parseInt(newPackage.durationDays),
+      paymentPerTask: parseFloat(newPackage.paymentPerTask),
     });
   };
 
@@ -201,6 +204,7 @@ export default function AdminPackages() {
       taskLimit: parseInt(newPackage.taskLimit),
       skipLimit: parseInt(newPackage.skipLimit),
       durationDays: parseInt(newPackage.durationDays),
+      paymentPerTask: parseFloat(newPackage.paymentPerTask),
     });
   };
 
@@ -213,6 +217,7 @@ export default function AdminPackages() {
       taskLimit: pkg.taskLimit.toString(),
       skipLimit: pkg.skipLimit.toString(),
       durationDays: pkg.durationDays.toString(),
+      paymentPerTask: (pkg.paymentPerTask || '5.00').toString(),
       qrCodeImage: pkg.qrCodeImage || "",
     });
   };
@@ -302,7 +307,7 @@ export default function AdminPackages() {
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="taskLimit">Task Limit</Label>
                   <Input
@@ -336,6 +341,19 @@ export default function AdminPackages() {
                     onChange={(e) => setNewPackage(prev => ({ ...prev, durationDays: e.target.value }))}
                     required
                     data-testid="input-duration-days"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="paymentPerTask">Payment Per Task (₹)</Label>
+                  <Input
+                    id="paymentPerTask"
+                    type="number"
+                    step="0.01"
+                    value={newPackage.paymentPerTask}
+                    onChange={(e) => setNewPackage(prev => ({ ...prev, paymentPerTask: e.target.value }))}
+                    required
+                    data-testid="input-payment-per-task"
                   />
                 </div>
               </div>
@@ -414,6 +432,10 @@ export default function AdminPackages() {
                     <div className="flex justify-between">
                       <span>Duration:</span>
                       <span className="font-semibold">{pkg.durationDays} days</span>
+                    </div>
+                    <div className="flex justify-between border-t pt-2 bg-green-50 -mx-4 px-4 py-2">
+                      <span className="text-green-700 font-medium">Per Task:</span>
+                      <span className="font-semibold text-green-700">₹{pkg.paymentPerTask || '5.00'}</span>
                     </div>
                   </div>
 

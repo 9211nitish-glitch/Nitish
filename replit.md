@@ -15,6 +15,8 @@ TaskFlow is a comprehensive admin/user task management platform where admins can
 - **Plesk Compatibility**: Verified Plesk Server 16.0.2 supports Node.js applications for production deployment
 - **User Interface Fixed**: Added packages access to user dashboard with quick actions and dedicated packages tab
 - **Admin Dashboard Fixed**: Resolved DollarSign icon import error, all admin functions now working properly
+- **Per-Task Payment System**: Added payment_per_task column to packages with customizable rates (Starter ₹3, Premium ₹5, Professional ₹8)
+- **Admin Controls**: Enhanced admin package interface to manage per-task payment amounts with visual display
 
 ## User Preferences
 
