@@ -9,34 +9,26 @@ import {
   wallets,
   walletTransactions 
 } from "@shared/schema";
-import { requireAuth, requireAdmin } from "./auth-middleware";
-import multer from "multer";
+// Authentication middleware 
+function requireAuth(req: any, res: any, next: any) {
+  if (!req.session?.user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  next();
+}
+
+// Admin middleware
+function requireAdmin(req: any, res: any, next: any) {
+  if (!req.session?.user?.isAdmin) {
+    return res.status(403).json({ message: "Admin access required" });
+  }
+  next();
+}
 import path from "path";
 
 const router = Router();
 
-// File upload configuration
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({ 
-  storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files allowed'));
-    }
-  }
-});
+// File upload will be handled in main routes
 
 // Public routes - Get available packages
 router.get("/api/packages", async (req, res) => {
@@ -54,9 +46,9 @@ router.get("/api/packages", async (req, res) => {
 });
 
 // User routes - require authentication
-router.get("/api/user/current-package", requireAuth, async (req, res) => {
+router.get("/api/user/current-package", requireAuth, async (req: any, res: any) => {
   try {
-    const userId = req.user.id;
+    const userId = req.session.user.id;
     
     const userCurrentPackage = await db
       .select({
@@ -90,9 +82,9 @@ router.get("/api/user/current-package", requireAuth, async (req, res) => {
   }
 });
 
-router.get("/api/user/payment-submissions", requireAuth, async (req, res) => {
+router.get("/api/user/payment-submissions", requireAuth, async (req: any, res: any) => {
   try {
-    const userId = req.user.id;
+    const userId = req.session.user.id;
     
     const submissions = await db
       .select({
@@ -121,25 +113,11 @@ router.get("/api/user/payment-submissions", requireAuth, async (req, res) => {
   }
 });
 
-// File upload endpoint
-router.post("/api/upload", requireAuth, upload.single('file'), (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: "No file uploaded" });
-    }
-    
-    // Return the file URL (adjust based on your server setup)
-    const fileUrl = `/uploads/${req.file.filename}`;
-    res.json({ url: fileUrl });
-  } catch (error) {
-    console.error("Error uploading file:", error);
-    res.status(500).json({ error: "Failed to upload file" });
-  }
-});
+// File upload is handled in main routes.ts file
 
-router.post("/api/user/submit-payment", requireAuth, async (req, res) => {
+router.post("/api/user/submit-payment", requireAuth, async (req: any, res: any) => {
   try {
-    const userId = req.user.id;
+    const userId = req.session.user.id;
     const { packageId, screenshotUrl, utrNumber } = req.body;
 
     if (!packageId || !screenshotUrl || !utrNumber) {
@@ -194,7 +172,7 @@ router.post("/api/user/submit-payment", requireAuth, async (req, res) => {
 });
 
 // Admin routes - require admin authentication
-router.get("/api/admin/packages", requireAdmin, async (req, res) => {
+router.get("/api/admin/packages", requireAdmin, async (req: any, res: any) => {
   try {
     const allPackages = await db
       .select()
@@ -208,7 +186,7 @@ router.get("/api/admin/packages", requireAdmin, async (req, res) => {
   }
 });
 
-router.post("/api/admin/packages", requireAdmin, async (req, res) => {
+router.post("/api/admin/packages", requireAdmin, async (req: any, res: any) => {
   try {
     const { name, description, price, taskLimit, skipLimit, durationDays, qrCodeImage } = req.body;
 
@@ -237,7 +215,7 @@ router.post("/api/admin/packages", requireAdmin, async (req, res) => {
   }
 });
 
-router.put("/api/admin/packages/:id", requireAdmin, async (req, res) => {
+router.put("/api/admin/packages/:id", requireAdmin, async (req: any, res: any) => {
   try {
     const { id } = req.params;
     const { name, description, price, taskLimit, skipLimit, durationDays, qrCodeImage } = req.body;
@@ -267,7 +245,7 @@ router.put("/api/admin/packages/:id", requireAdmin, async (req, res) => {
   }
 });
 
-router.get("/api/admin/payment-submissions", requireAdmin, async (req, res) => {
+router.get("/api/admin/payment-submissions", requireAdmin, async (req: any, res: any) => {
   try {
     const submissions = await db
       .select({
@@ -305,11 +283,11 @@ router.get("/api/admin/payment-submissions", requireAdmin, async (req, res) => {
   }
 });
 
-router.post("/api/admin/payment-submissions/:id/review", requireAdmin, async (req, res) => {
+router.post("/api/admin/payment-submissions/:id/review", requireAdmin, async (req: any, res: any) => {
   try {
     const { id } = req.params;
     const { action, reason } = req.body;
-    const adminId = req.user.id;
+    const adminId = req.session.user.id;
 
     if (!['approve', 'reject'].includes(action)) {
       return res.status(400).json({ error: "Invalid action" });
